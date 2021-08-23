@@ -143,13 +143,6 @@ public class MidiPlayer implements NotePlayer {
     }
 
     /**
-     * mutes/unmutes track 1, depending on it's current state
-     */
-    public void mute() {
-        sequencer.setTrackMute(0, !sequencer.getTrackMute(0));
-    }
-
-    /**
      * getter for {@link #notes}
      *
      * @return note list

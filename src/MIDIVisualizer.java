@@ -218,13 +218,6 @@ public class MIDIVisualizer extends JPanel {
                 repaint();
             }
         });
-        getInputMap().put(KeyStroke.getKeyStroke(KeyEvent.VK_M, 0), "M");
-        getActionMap().put("m", new AbstractAction() {
-            @Override
-            public void actionPerformed(ActionEvent e) {
-                player.mute();
-            }
-        });
 
         addMouseListener(new MouseAdapter() {
             @Override
