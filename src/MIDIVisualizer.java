@@ -98,6 +98,9 @@ public class MIDIVisualizer extends JPanel {
     /** x position for the zoom range. Uses {@link Integer} to allow null values. */
     private Integer dragStart, mouseDragPos;
 
+    private long frametime = 1000000000;
+    private long lastTime = System.nanoTime();
+
     public static void main(String[] args) {
         try {
             String executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
@@ -129,11 +132,13 @@ public class MIDIVisualizer extends JPanel {
 
             try {
                 TICKS_PER_PIXEL = Integer.parseInt((String) properties.get("TICKS_PER_PIXEL"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                e.printStackTrace();
             }
             try {
                 NOTE_OFFSET = Integer.parseInt((String) properties.get("NOTE_OFFSET"));
-            } catch (Exception ignored) {
+            } catch (Exception e) {
+                e.printStackTrace();
             }
 
             new MIDIVisualizer();
@@ -160,6 +165,7 @@ public class MIDIVisualizer extends JPanel {
         menu.add(menuInfo);
 
         setComponentPopupMenu(menu);
+        setDoubleBuffered(true);
 
         frame = new JFrame();
         frame.setDefaultCloseOperation(JFrame.EXIT_ON_CLOSE);
@@ -494,6 +500,16 @@ public class MIDIVisualizer extends JPanel {
             g.setColor(new Color(0, 0, 0, 50));
             g.fillRect(dragStart, 0, mouseDragPos - dragStart, areaHeight - kbHeight);
         }
+
+        g.setColor(Color.GREEN);
+        g.setFont(new Font(Font.SANS_SERIF, Font.PLAIN, 20));
+        long time = System.nanoTime();
+        frametime = (long) (0.95 * frametime + 0.05 * (time - lastTime));
+        lastTime = time;
+        g.drawString(String.valueOf(1000000000 / frametime), 5, 25);
+
+//        if (player != null && !player.isPaused())
+//            repaint();
     }
 
     /**

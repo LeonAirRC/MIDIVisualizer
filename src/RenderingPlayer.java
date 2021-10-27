@@ -90,4 +90,8 @@ public class RenderingPlayer implements NotePlayer {
     public long getTicks() {
         return sequencer.getTickPosition();
     }
+
+    public boolean isPaused() {
+        return false;
+    }
 }

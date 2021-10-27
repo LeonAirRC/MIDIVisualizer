@@ -12,4 +12,6 @@ public interface NotePlayer {
     ArrayList<Note> getNotes();
 
     long getTicks();
+
+    boolean isPaused();
 }

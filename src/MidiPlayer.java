@@ -83,6 +83,8 @@ public class MidiPlayer implements NotePlayer {
                     playing[sm.getData1() - 1] = (byte) sm.getChannel();
                 } else if (sm.getCommand() == ShortMessage.NOTE_OFF) {
                     playing[sm.getData1() - 1] = NO_CHANNEL;
+//                    if (sequencer.getTickPosition() >= notes.get(notes.size() - 1).getEnd())
+//                        stop();
                 }
             }
 
@@ -100,6 +102,7 @@ public class MidiPlayer implements NotePlayer {
             return;
         paused = false;
         sequencer.start();
+        parent.repaint();
         timer = new Timer(true);
         timer.scheduleAtFixedRate(new TimerTask() {
             @Override
@@ -108,7 +111,7 @@ public class MidiPlayer implements NotePlayer {
                 if (sequencer.getTickPosition() > notes.get(notes.size() - 1).getEnd())
                     stop();
             }
-        }, 0, 10);
+        }, 0, 4);
     }
 
     /**
