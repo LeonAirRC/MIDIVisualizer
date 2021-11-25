@@ -28,27 +28,34 @@ import java.util.concurrent.atomic.AtomicBoolean;
  * <p>
  * This file is part of MIDIVisualizer.
  * <p>
- * MIDIVisualizer is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software Foundation, either
+ * MIDIVisualizer is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License as published by the Free Software
+ * Foundation, either
  * version 3 of the
  * License, or (at your option) any later version.
  * <p>
- * MIDIVisualizer is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR
+ * MIDIVisualizer is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+ * PARTICULAR
  * PURPOSE. See the GNU
  * General Public License for more details.
  * <p>
  * You should have received a copy of the GNU General Public License along with MIDIVisualizer. If not, see <<html>http://www.gnu.org/licenses/</html>>.
  * <p>
- * THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES PROVIDE
+ * THERE IS NO WARRANTY FOR THE PROGRAM, TO THE EXTENT PERMITTED BY APPLICABLE LAW. EXCEPT WHEN OTHERWISE STATED IN WRITING THE COPYRIGHT HOLDERS AND/OR OTHER PARTIES
+ * PROVIDE
  * THE PROGRAM “AS IS”
- * WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE. THE
+ * WITHOUT WARRANTY OF ANY KIND, EITHER EXPRESSED OR IMPLIED, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR
+ * PURPOSE. THE
  * ENTIRE RISK AS TO THE
  * QUALITY AND PERFORMANCE OF THE PROGRAM IS WITH YOU. SHOULD THE PROGRAM PROVE DEFECTIVE, YOU ASSUME THE COST OF ALL NECESSARY SERVICING, REPAIR OR CORRECTION.
  * <p>
- * IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS PERMITTED
+ * IN NO EVENT UNLESS REQUIRED BY APPLICABLE LAW OR AGREED TO IN WRITING WILL ANY COPYRIGHT HOLDER, OR ANY OTHER PARTY WHO MODIFIES AND/OR CONVEYS THE PROGRAM AS
+ * PERMITTED
  * ABOVE, BE LIABLE TO YOU FOR
- * DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO LOSS OF DATA
+ * DAMAGES, INCLUDING ANY GENERAL, SPECIAL, INCIDENTAL OR CONSEQUENTIAL DAMAGES ARISING OUT OF THE USE OR INABILITY TO USE THE PROGRAM (INCLUDING BUT NOT LIMITED TO
+ * LOSS OF DATA
  * OR DATA BEING RENDERED
- * INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN ADVISED OF
+ * INACCURATE OR LOSSES SUSTAINED BY YOU OR THIRD PARTIES OR A FAILURE OF THE PROGRAM TO OPERATE WITH ANY OTHER PROGRAMS), EVEN IF SUCH HOLDER OR OTHER PARTY HAS BEEN
+ * ADVISED OF
  * THE POSSIBILITY OF
  * SUCH DAMAGES.
  * <p>
@@ -97,6 +104,11 @@ public class MIDIVisualizer extends JPanel {
     public static Color backgroundColor;
     /** x position for the zoom range. Uses {@link Integer} to allow null values. */
     private Integer dragStart, mouseDragPos;
+    /**
+     * file extension filters for export and open dialogs
+     */
+    private final FileNameExtensionFilter exportFilter = new FileNameExtensionFilter("video format", "mp4"),
+            openFilter = new FileNameExtensionFilter("Midi", "mid");
 
     public static void main(String[] args) {
         try {
@@ -104,7 +116,7 @@ public class MIDIVisualizer extends JPanel {
             blackKey = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("blackKey.png")));
             icon = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("icon.png")));
             try {
-                background = ImageIO.read(new File(executionDirectory + File.separator + "background.png"));
+                background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
             } catch (Exception ignored) {
             }
 
@@ -262,7 +274,7 @@ public class MIDIVisualizer extends JPanel {
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setVisible(true);
 
-        FlatDarkLaf.install();
+        FlatDarkLaf.setup();
         SwingUtilities.updateComponentTreeUI(frame);
         SwingUtilities.updateComponentTreeUI(fileChooser);
     }
@@ -271,33 +283,37 @@ public class MIDIVisualizer extends JPanel {
      * Displays a file-chooser to select the export file and format and starts rendering the video.
      * Blocks the executing thread until rendering is finished or cancelled.
      */
-    private void exportVideo() {
+    private synchronized void exportVideo() {
         if (player == null)
             return;
         player.stop();
         ProgressDialog progressDialog = null;
         VideoRenderer renderer = null;
+        File file = null;
         try {
-            fileChooser.setFileFilter(new FileNameExtensionFilter("video format", "mp4", "mov"));
+            fileChooser.setFileFilter(exportFilter);
+            fileChooser.setSelectedFile(new File(""));
             int opt = fileChooser.showSaveDialog(this);
-            fileChooser.setFileFilter(null);
             if (opt == JFileChooser.CANCEL_OPTION)
                 return;
-            if (fileChooser.getSelectedFile().exists()
+            file = fileChooser.getSelectedFile();
+            if (!file.isDirectory() && !file.getPath().toLowerCase().endsWith(".mp4"))
+                file = new File(file + ".mp4");
+            if (file.exists()
                     && JOptionPane.showConfirmDialog(this, "Overwrite existing file?", "File already exists", JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)
                 return;
 
             int width = Integer.parseInt((String) properties.get("EXPORT_WIDTH")), height = Integer.parseInt((String) properties.get("EXPORT_HEIGHT"));
             int fps = Integer.parseInt((String) properties.get("EXPORT_FPS"));
+            AtomicBoolean cancelled = new AtomicBoolean(false);
+            progressDialog = new ProgressDialog(frame, (int) (player.getSequence().getMicrosecondLength() * fps / 1000000),
+                    () -> cancelled.set(true));
             RenderingPlayer renderingPlayer = new RenderingPlayer(player.getSequence(), player.getNotes());
             frame.setEnabled(false);
-            renderer = new VideoRenderer(fileChooser.getSelectedFile(), fps);
+            renderer = new VideoRenderer(file.getPath(), "mp4", null, fps, width, height);
             int frame = 0;
-            AtomicBoolean cancelled = new AtomicBoolean(false);
-            progressDialog = new ProgressDialog(this, (int) (player.getSequence().getMicrosecondLength() * fps / 1000000),
-                    () -> cancelled.set(true));
             do {
-                BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
                 Graphics g = img.getGraphics();
                 paintMidiPlayer(g, renderingPlayer, width, height, null);
                 g.dispose();
@@ -315,7 +331,8 @@ public class MIDIVisualizer extends JPanel {
                 progressDialog.dispose();
             if (renderer != null)
                 renderer.finish();
-            fileChooser.getSelectedFile().delete();
+            if (file != null)
+                file.delete();
             JOptionPane.showMessageDialog(this, "Export of the video failed", "Export error", JOptionPane.ERROR_MESSAGE);
         }
         frame.setEnabled(true);
@@ -338,12 +355,13 @@ public class MIDIVisualizer extends JPanel {
      * Allows the user to import a new midi file. Does not consider if another midi file is currently loaded.
      */
     private synchronized void loadFile() {
+        fileChooser.setFileFilter(openFilter);
+        fileChooser.setSelectedFile(new File(""));
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
                 MidiPlayer newPlayer = new MidiPlayer(this, MidiSystem.getSequence(fileChooser.getSelectedFile()));
                 if (player != null) { // only stop current player if no exception occurred while loading the new sequence
                     player.stop();
-                    player = null;
                 }
                 player = newPlayer;
                 repaint();
@@ -369,7 +387,8 @@ public class MIDIVisualizer extends JPanel {
 
     /**
      * If the key with the given number is a white key, the number of the corresponding white key is returned, ranging from 0 to {@link #WHITE_KEYS} - 1.
-     * Otherwise the number of the corresponding black key is returned, ranging from 0 to {@link #WHITE_KEYS} - 2. Thus there are numbers for black keys that don't exist, but
+     * Otherwise the number of the corresponding black key is returned, ranging from 0 to {@link #WHITE_KEYS} - 2. Thus there are numbers for black keys that don't
+     * exist, but
      * they grow linearly.
      *
      * @param note note ranging from 0 to 87
@@ -380,18 +399,34 @@ public class MIDIVisualizer extends JPanel {
         int key;
         switch (note % 12) {
             case 0:
-            case 1: key = 0; break;
-            case 2: key = 1; break;
+            case 1:
+                key = 0;
+                break;
+            case 2:
+                key = 1;
+                break;
             case 3:
-            case 4: key = 2; break;
+            case 4:
+                key = 2;
+                break;
             case 5:
-            case 6: key = 3; break;
-            case 7: key = 4; break;
+            case 6:
+                key = 3;
+                break;
+            case 7:
+                key = 4;
+                break;
             case 8:
-            case 9: key = 5; break;
+            case 9:
+                key = 5;
+                break;
             case 10:
-            case 11: key = 6; break;
-            default: key = -1; break;
+            case 11:
+                key = 6;
+                break;
+            default:
+                key = -1;
+                break;
         }
         return octave * 7 + key;
     }
@@ -406,14 +441,30 @@ public class MIDIVisualizer extends JPanel {
         int octave = key / 7;
         int note;
         switch (key % 7) {
-            case 0: note = 0; break;
-            case 1: note = 2; break;
-            case 2: note = 3; break;
-            case 3: note = 5; break;
-            case 4: note = 7; break;
-            case 5: note = 8; break;
-            case 6: note = 10; break;
-            default: note = -1; break;
+            case 0:
+                note = 0;
+                break;
+            case 1:
+                note = 2;
+                break;
+            case 2:
+                note = 3;
+                break;
+            case 3:
+                note = 5;
+                break;
+            case 4:
+                note = 7;
+                break;
+            case 5:
+                note = 8;
+                break;
+            case 6:
+                note = 10;
+                break;
+            default:
+                note = -1;
+                break;
         }
         return octave * 12 + note;
     }
@@ -449,7 +500,8 @@ public class MIDIVisualizer extends JPanel {
             g.fillRect(0, 0, areaWidth, areaHeight);
         } else {
             float bgScale = Math.max((float) areaWidth / background.getWidth(), (float) (areaHeight - kbHeight) / background.getHeight());
-            g2d.drawImage(background, Math.round((areaWidth - bgScale * background.getWidth()) / 2), Math.round((areaHeight - kbHeight - bgScale * background.getHeight()) / 2),
+            g2d.drawImage(background, Math.round((areaWidth - bgScale * background.getWidth()) / 2),
+                    Math.round((areaHeight - kbHeight - bgScale * background.getHeight()) / 2),
                     (int) Math.ceil(background.getWidth() * bgScale), (int) Math.ceil(background.getHeight() * bgScale), observer);
         }
 

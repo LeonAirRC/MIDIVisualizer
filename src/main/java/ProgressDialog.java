@@ -14,12 +14,13 @@ public class ProgressDialog extends JDialog {
      * @param max maximum value
      * @param onCancel called when the cancel button is pressed, does not have to dispose this dialog
      */
-    public ProgressDialog(MIDIVisualizer parent, int max, Runnable onCancel) {
-        super();
+    public ProgressDialog(JFrame parent, int max, Runnable onCancel) {
+        super(parent);
         setResizable(false);
         setTitle("Rendering video");
         setUndecorated(true);
         setIconImage(MIDIVisualizer.icon);
+        setDefaultCloseOperation(DO_NOTHING_ON_CLOSE);
         getRootPane().setWindowDecorationStyle(JRootPane.FRAME);
         JPanel panel = new JPanel(new GridBagLayout());
         GridBagConstraints gbc = new GridBagConstraints();
