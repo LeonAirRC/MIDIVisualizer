@@ -26,9 +26,6 @@ public class RenderingPlayer implements NotePlayer {
         sequencer = MidiSystem.getSequencer();
         sequencer.open();
         sequencer.setSequence(sequence);
-        for (Note note: notes)
-            if (note.getStart() == 0 && note.getEnd() > 0)
-                playing[note.getNote()] = (byte) note.getChannel();
     }
 
     /**
@@ -38,6 +35,10 @@ public class RenderingPlayer implements NotePlayer {
      */
     public void nextTime(long newTime) {
         long oldTicks = sequencer.getTickPosition();
+        if (oldTicks == 0)
+            for (Note note : notes)
+                if (note.getStart() == 0 && note.getEnd() > 0)
+                    playing[note.getNote()] = (byte) note.getChannel();
         sequencer.setMicrosecondPosition(newTime);
         long newTicks = sequencer.getTickPosition();
         for (Note note : notes) {

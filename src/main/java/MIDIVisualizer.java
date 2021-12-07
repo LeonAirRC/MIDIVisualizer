@@ -1,4 +1,5 @@
 import com.formdev.flatlaf.FlatDarkLaf;
+import org.apache.log4j.BasicConfigurator;
 
 import javax.imageio.ImageIO;
 import javax.sound.midi.*;
@@ -24,7 +25,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 /**
  * MIDIVisualizer can read, play and export MIDI files.
  * <p>
- * Leon Bartmann 2020
+ * Leon Bartmann 2021
  * <p>
  * This file is part of MIDIVisualizer.
  * <p>
@@ -65,8 +66,7 @@ import java.util.concurrent.atomic.AtomicBoolean;
 public class MIDIVisualizer extends JPanel {
     /** displayed text in the 'About' window */
     public static final String infoText = "Shortcuts:\nFullscreen: F\nReset zoom: ESC\nExport video: Ctrl + E\nOpen MIDI: Ctrl + O\nRestart sequence: W\nMute: M\n\n\n\n"
-            + "Leon Bartmann 2020\nReleased under the GNU GPL3 License\n<www.gnu.org/licenses/gpl-3.0>\n\n"
-            + "External modules:\nJCodec (FreeBSD License)\n<https://github.com/jcodec/jcodec>";
+            + "Leon Bartmann 2021\nReleased under the GNU GPL3 License\n<www.gnu.org/licenses/gpl-3.0>";
 
     /** number of notes supported by midi */
     public static final int MIDI_NOTES = 128;
@@ -107,23 +107,25 @@ public class MIDIVisualizer extends JPanel {
     /**
      * file extension filters for export and open dialogs
      */
-    private final FileNameExtensionFilter exportFilter = new FileNameExtensionFilter("video format", "mp4"),
+    private final FileNameExtensionFilter exportFilter = new FileNameExtensionFilter("Video", "mp4"),
             openFilter = new FileNameExtensionFilter("Midi", "mid");
 
     public static void main(String[] args) {
+        BasicConfigurator.configure();
         try {
             String executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+            System.out.println("exec dir: " + executionDirectory);
             blackKey = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("blackKey.png")));
             icon = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("icon.png")));
-            try {
-                background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
-            } catch (Exception ignored) {
-            }
 
             try (BufferedReader reader = new BufferedReader(new FileReader(executionDirectory + File.separator + "properties.config"))) {
                 properties = new Properties();
                 properties.load(reader);
                 backgroundColor = ColorsDialog.toColor((String) properties.get("BACKGROUND_COLOR"));
+                try {
+                    background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
+                } catch (Exception ignored) {
+                }
                 for (int i = 0; i < CHANNELS; i++) {
                     channelColors[i] = ColorsDialog.toColor((String) properties.get("Channel_" + (i + 1)));
                     if (channelColors[i] == null)
@@ -158,7 +160,7 @@ public class MIDIVisualizer extends JPanel {
 
     public MIDIVisualizer() throws IOException {
         super();
-
+        FlatDarkLaf.setup();
         JPopupMenu menu = new JPopupMenu();
         JMenuItem menuOpen = new JMenuItem("Open midi");
         menuOpen.addActionListener(event -> loadFile());
@@ -274,7 +276,6 @@ public class MIDIVisualizer extends JPanel {
         frame.setExtendedState(JFrame.MAXIMIZED_BOTH);
         frame.setVisible(true);
 
-        FlatDarkLaf.setup();
         SwingUtilities.updateComponentTreeUI(frame);
         SwingUtilities.updateComponentTreeUI(fileChooser);
     }
@@ -302,7 +303,7 @@ public class MIDIVisualizer extends JPanel {
             if (file.exists()
                     && JOptionPane.showConfirmDialog(this, "Overwrite existing file?", "File already exists", JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)
                 return;
-
+            VideoRenderer.init();
             int width = Integer.parseInt((String) properties.get("EXPORT_WIDTH")), height = Integer.parseInt((String) properties.get("EXPORT_HEIGHT"));
             int fps = Integer.parseInt((String) properties.get("EXPORT_FPS"));
             AtomicBoolean cancelled = new AtomicBoolean(false);
@@ -336,6 +337,7 @@ public class MIDIVisualizer extends JPanel {
             JOptionPane.showMessageDialog(this, "Export of the video failed", "Export error", JOptionPane.ERROR_MESSAGE);
         }
         frame.setEnabled(true);
+        frame.toFront();
     }
 
     /**
