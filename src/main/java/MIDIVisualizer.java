@@ -114,7 +114,6 @@ public class MIDIVisualizer extends JPanel {
         BasicConfigurator.configure();
         try {
             String executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
-            System.out.println("exec dir: " + executionDirectory);
             blackKey = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("blackKey.png")));
             icon = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("icon.png")));
 
@@ -126,16 +125,15 @@ public class MIDIVisualizer extends JPanel {
                     background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
                 } catch (Exception ignored) {
                 }
-                for (int i = 0; i < CHANNELS; i++) {
-                    channelColors[i] = ColorsDialog.toColor((String) properties.get("Channel_" + (i + 1)));
-                    if (channelColors[i] == null)
-                        throw new NullPointerException();
-                }
             } catch (Exception e) {
-                e.printStackTrace();
-                Arrays.fill(channelColors, Color.BLUE);
-                channelColors[0] = ColorsDialog.toColor("#41FCFD");
-                channelColors[1] = ColorsDialog.toColor("#BE0302");
+                System.err.println("properties.config is missing, falling back to default values");
+                properties = new Properties();
+                properties.load(MIDIVisualizer.class.getResourceAsStream("properties.config"));
+            }
+            for (int i = 0; i < CHANNELS; i++) {
+                channelColors[i] = ColorsDialog.toColor((String) properties.get("Channel_" + (i + 1)));
+                if (channelColors[i] == null)
+                    throw new NullPointerException();
             }
 
             if (backgroundColor == null)
