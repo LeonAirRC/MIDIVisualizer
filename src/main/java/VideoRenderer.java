@@ -30,7 +30,7 @@ public final class VideoRenderer {
                 in.close();
                 out.close();
                 System.setProperty("java.library.path", file.getParent());
-                System.load(file.getAbsolutePath());
+                // System.load(file.getAbsolutePath());
                 initialized = true;
             } catch (IOException e) {
                 e.printStackTrace();
