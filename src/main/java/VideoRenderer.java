@@ -17,27 +17,27 @@ public final class VideoRenderer {
     public static void init() {
         if (initialized)
             return;
-        try {
-            String executionDirectory = new File(VideoRenderer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
-            File file = new File(executionDirectory + File.separator + "libhumblevideo-0.dll");
-            try (InputStream in = VideoRenderer.class.getResourceAsStream("libhumblevideo-0.dll");
-                 OutputStream out = new FileOutputStream(file)) {
-                byte[] buf = new byte[8192];
-                int length;
-                while ((length = Objects.requireNonNull(in).read(buf)) > 0) {
-                    out.write(buf, 0, length);
-                }
-                in.close();
-                out.close();
-                // System.setProperty("java.library.path", file.getAbsolutePath());
-                System.load(file.getAbsolutePath());
-                initialized = true;
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        } catch (URISyntaxException e) {
-            e.printStackTrace();
-        }
+//        try {
+//            String executionDirectory = new File(VideoRenderer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+//            File file = new File(executionDirectory + File.separator + "libhumblevideo-0.dll");
+//            try (InputStream in = VideoRenderer.class.getResourceAsStream("libhumblevideo-0.dll");
+//                 OutputStream out = new FileOutputStream(file)) {
+//                byte[] buf = new byte[8192];
+//                int length;
+//                while ((length = Objects.requireNonNull(in).read(buf)) > 0) {
+//                    out.write(buf, 0, length);
+//                }
+//                in.close();
+//                out.close();
+//                // System.setProperty("java.library.path", file.getAbsolutePath());
+//                System.load(file.getAbsolutePath());
+//                initialized = true;
+//            } catch (IOException e) {
+//                e.printStackTrace();
+//            }
+//        } catch (URISyntaxException e) {
+//            e.printStackTrace();
+//        }
     }
 
     /** true if finished was already called to disallow new frames after finish was called */
