@@ -22,7 +22,11 @@ public final class VideoRenderer {
             File file = new File(executionDirectory + File.separator + "libhumblevideo-0.dll");
             try (InputStream in = VideoRenderer.class.getResourceAsStream("libhumblevideo-0.dll");
                  OutputStream out = new FileOutputStream(file)) {
-                out.write(Objects.requireNonNull(in).readAllBytes());
+                byte[] buf = new byte[8192];
+                int length;
+                while ((length = Objects.requireNonNull(in).read(buf)) > 0) {
+                    out.write(buf, 0, length);
+                }
                 in.close();
                 out.close();
                 // System.setProperty("java.library.path", file.getAbsolutePath());
