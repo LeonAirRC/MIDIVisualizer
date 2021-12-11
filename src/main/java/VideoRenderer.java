@@ -4,7 +4,6 @@ import io.humble.video.awt.MediaPictureConverterFactory;
 
 import java.awt.image.BufferedImage;
 import java.io.*;
-import java.net.URISyntaxException;
 import java.util.Objects;
 
 /**
@@ -15,27 +14,22 @@ public final class VideoRenderer {
     private static boolean initialized = false;
 
     public static void init() {
-        if (initialized)
+        if (initialized || !System.getProperty("os.name").toLowerCase().contains("win"))
             return;
-        try {
-            String executionDirectory = new File(VideoRenderer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
-            File file = new File(executionDirectory + File.separator + "libhumblevideo-0.dll");
-            try (InputStream in = VideoRenderer.class.getResourceAsStream("libhumblevideo-0.dll");
-                 OutputStream out = new FileOutputStream(file)) {
-                byte[] buf = new byte[8192];
-                int length;
-                while ((length = Objects.requireNonNull(in).read(buf)) > 0) {
-                    out.write(buf, 0, length);
-                }
-                in.close();
-                out.close();
-                System.setProperty("java.library.path", file.getParent());
-                System.load(file.getAbsolutePath());
-                initialized = true;
-            } catch (IOException e) {
-                e.printStackTrace();
+        File file = new File(MIDIVisualizer.executionDirectory + File.separator + "libhumblevideo-0.dll");
+        try (InputStream in = VideoRenderer.class.getResourceAsStream("libhumblevideo-0.dll");
+             OutputStream out = new FileOutputStream(file)) {
+            byte[] buf = new byte[8192];
+            int length;
+            while ((length = Objects.requireNonNull(in).read(buf)) > 0) {
+                out.write(buf, 0, length);
             }
-        } catch (URISyntaxException e) {
+            in.close();
+            out.close();
+            System.setProperty("java.library.path", file.getParent());
+            System.load(file.getAbsolutePath());
+            initialized = true;
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

@@ -110,25 +110,27 @@ public class MIDIVisualizer extends JPanel {
     private final FileNameExtensionFilter exportFilter = new FileNameExtensionFilter("Video", "mp4"),
             openFilter = new FileNameExtensionFilter("Midi", "mid");
 
+    static String executionDirectory;
+
     public static void main(String[] args) {
         BasicConfigurator.configure();
         try {
-            String executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
+            executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
             blackKey = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("blackKey.png")));
             icon = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("icon.png")));
 
             try (BufferedReader reader = new BufferedReader(new FileReader(executionDirectory + File.separator + "properties.config"))) {
                 properties = new Properties();
                 properties.load(reader);
-                backgroundColor = ColorsDialog.toColor((String) properties.get("BACKGROUND_COLOR"));
-                try {
-                    background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
-                } catch (Exception ignored) {
-                }
             } catch (Exception e) {
                 System.err.println("properties.config is missing, falling back to default values");
                 properties = new Properties();
                 properties.load(MIDIVisualizer.class.getResourceAsStream("properties.config"));
+            }
+            backgroundColor = ColorsDialog.toColor((String) properties.get("BACKGROUND_COLOR"));
+            try {
+                background = ImageIO.read(new File(executionDirectory + File.separator + properties.get("BACKGROUND_IMAGE")));
+            } catch (Exception ignored) {
             }
             for (int i = 0; i < CHANNELS; i++) {
                 channelColors[i] = ColorsDialog.toColor((String) properties.get("Channel_" + (i + 1)));
@@ -286,53 +288,85 @@ public class MIDIVisualizer extends JPanel {
         if (player == null)
             return;
         player.stop();
+        int width = Integer.parseInt((String) properties.get("EXPORT_WIDTH")), height = Integer.parseInt((String) properties.get("EXPORT_HEIGHT"));
+        int fps = Integer.parseInt((String) properties.get("EXPORT_FPS"));
+        AtomicBoolean cancelled = new AtomicBoolean(false);
         ProgressDialog progressDialog = null;
-        VideoRenderer renderer = null;
-        File file = null;
-        try {
-            fileChooser.setFileFilter(exportFilter);
-            fileChooser.setSelectedFile(new File(""));
-            int opt = fileChooser.showSaveDialog(this);
-            if (opt == JFileChooser.CANCEL_OPTION)
-                return;
-            file = fileChooser.getSelectedFile();
-            if (!file.isDirectory() && !file.getPath().toLowerCase().endsWith(".mp4"))
-                file = new File(file + ".mp4");
-            if (file.exists()
-                    && JOptionPane.showConfirmDialog(this, "Overwrite existing file?", "File already exists", JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)
-                return;
-            VideoRenderer.init();
-            int width = Integer.parseInt((String) properties.get("EXPORT_WIDTH")), height = Integer.parseInt((String) properties.get("EXPORT_HEIGHT"));
-            int fps = Integer.parseInt((String) properties.get("EXPORT_FPS"));
-            AtomicBoolean cancelled = new AtomicBoolean(false);
-            progressDialog = new ProgressDialog(frame, (int) (player.getSequence().getMicrosecondLength() * fps / 1000000),
-                    () -> cancelled.set(true));
-            RenderingPlayer renderingPlayer = new RenderingPlayer(player.getSequence(), player.getNotes());
-            frame.setEnabled(false);
-            renderer = new VideoRenderer(file.getPath(), "mp4", null, fps, width, height);
-            int frame = 0;
-            do {
-                BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
-                Graphics g = img.getGraphics();
-                paintMidiPlayer(g, renderingPlayer, width, height, null);
-                g.dispose();
-                renderer.addFrame(img);
-                frame++;
-                renderingPlayer.nextTime(frame * 1000000L / fps);
-                progressDialog.update(frame);
-            } while (!cancelled.get() && !renderingPlayer.isAtEnd());
-            renderer.finish();
-            if (!cancelled.get())
-                progressDialog.dispose();
-        } catch (Exception e) {
-            e.printStackTrace();
-            if (progressDialog != null)
-                progressDialog.dispose();
-            if (renderer != null)
+        if (!"SINGLE_FRAMES".equals(properties.get("EXPORT_MODE"))) {
+            VideoRenderer renderer = null;
+            File file = null;
+            try {
+                fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
+                fileChooser.setFileFilter(exportFilter);
+                fileChooser.setSelectedFile(new File(""));
+                if (fileChooser.showSaveDialog(this) == JFileChooser.CANCEL_OPTION)
+                    return;
+                file = fileChooser.getSelectedFile();
+                if (!file.isDirectory() && !file.getPath().toLowerCase().endsWith(".mp4"))
+                    file = new File(file + ".mp4");
+                if (file.exists()
+                        && JOptionPane.showConfirmDialog(this, "Overwrite existing file?", "File already exists", JOptionPane.YES_NO_OPTION) == JOptionPane.NO_OPTION)
+                    return;
+                progressDialog = new ProgressDialog(frame, (int) (player.getSequence().getMicrosecondLength() * fps / 1000000), () -> cancelled.set(true));
+                VideoRenderer.init();
+                RenderingPlayer renderingPlayer = new RenderingPlayer(player.getSequence(), player.getNotes());
+                frame.setEnabled(false);
+                renderer = new VideoRenderer(file.getPath(), "mp4", null, fps, width, height);
+                int frame = 0;
+                do {
+                    BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_3BYTE_BGR);
+                    Graphics g = img.getGraphics();
+                    paintMidiPlayer(g, renderingPlayer, width, height, null);
+                    g.dispose();
+                    renderer.addFrame(img);
+                    frame++;
+                    renderingPlayer.nextTime(frame * 1000000L / fps);
+                    progressDialog.update(frame);
+                } while (!cancelled.get() && !renderingPlayer.isAtEnd());
                 renderer.finish();
-            if (file != null)
-                file.delete();
-            JOptionPane.showMessageDialog(this, "Export of the video failed", "Export error", JOptionPane.ERROR_MESSAGE);
+                if (!cancelled.get())
+                    progressDialog.dispose();
+            } catch (Exception e) {
+                e.printStackTrace();
+                if (progressDialog != null)
+                    progressDialog.dispose();
+                if (renderer != null)
+                    renderer.finish();
+                if (file != null)
+                    file.delete();
+                JOptionPane.showMessageDialog(this, "Export of the video failed", "Export error", JOptionPane.ERROR_MESSAGE);
+            }
+        } else {
+            try {
+                fileChooser.setFileSelectionMode(JFileChooser.DIRECTORIES_ONLY);
+                fileChooser.setFileFilter(null);
+                fileChooser.setSelectedFile(fileChooser.getSelectedFile().isFile() ? fileChooser.getSelectedFile() : fileChooser.getSelectedFile().getParentFile());
+                if (fileChooser.showSaveDialog(this) == JFileChooser.CANCEL_OPTION)
+                    return;
+                File dir = fileChooser.getSelectedFile();
+                if (!dir.exists() && !dir.createNewFile())
+                    throw new Exception();
+                progressDialog = new ProgressDialog(frame, (int) (player.getSequence().getMicrosecondLength() * fps / 1000000), () -> cancelled.set(true));
+                RenderingPlayer renderingPlayer = new RenderingPlayer(player.getSequence(), player.getNotes());
+                frame.setEnabled(false);
+                int frame = 0;
+                do {
+                    BufferedImage img = new BufferedImage(width, height, BufferedImage.TYPE_INT_RGB);
+                    Graphics g = img.getGraphics();
+                    paintMidiPlayer(g, renderingPlayer, width, height, null);
+                    g.dispose();
+                    ImageIO.write(img, "png", new File(dir.getAbsolutePath() + File.separator + "frame " + frame + ".png"));
+                    frame++;
+                    renderingPlayer.nextTime(frame * 1000000L / fps);
+                    progressDialog.update(frame);
+                } while (!cancelled.get() && !renderingPlayer.isAtEnd());
+                if (!cancelled.get())
+                    progressDialog.dispose();
+            } catch (Exception e) {
+                if (progressDialog != null)
+                    progressDialog.dispose();
+                JOptionPane.showMessageDialog(this, "Export of the video failed", "Export error", JOptionPane.ERROR_MESSAGE);
+            }
         }
         frame.setEnabled(true);
         frame.toFront();
@@ -356,6 +390,7 @@ public class MIDIVisualizer extends JPanel {
      */
     private synchronized void loadFile() {
         fileChooser.setFileFilter(openFilter);
+        fileChooser.setFileSelectionMode(JFileChooser.FILES_ONLY);
         fileChooser.setSelectedFile(new File(""));
         if (fileChooser.showOpenDialog(this) == JFileChooser.APPROVE_OPTION) {
             try {
