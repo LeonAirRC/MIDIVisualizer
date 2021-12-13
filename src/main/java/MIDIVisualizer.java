@@ -113,7 +113,7 @@ public class MIDIVisualizer extends JPanel {
     static String executionDirectory;
 
     public static void main(String[] args) {
-        BasicConfigurator.configure();
+        System.setProperty("log4j2.formatMsgNoLookups", "true");
         try {
             executionDirectory = new File(MIDIVisualizer.class.getProtectionDomain().getCodeSource().getLocation().toURI()).getParent();
             blackKey = ImageIO.read(Objects.requireNonNull(MIDIVisualizer.class.getResourceAsStream("blackKey.png")));
